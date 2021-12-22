@@ -1,0 +1,166 @@
+version: 2
+workflows:
+  version: 2
+  test:
+    jobs:
+      - test-3.8-staging:
+          context: pip-staging
+          filters:
+            branches:
+              only: /daffy-staging.*/
+      - test-3.8-production:
+          context: production
+          filters:
+            branches:
+              ignore: /daffy-staging.*/
+
+jobs:
+  test-3.6: &test-template
+    environment:
+      COLUMNS: 160
+      # default is /usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      PATH: /root/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    docker:
+      - image: python:3.6
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - run:
+          name: Install Git LFS
+          command: |
+            curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
+            apt-get update
+            apt-get install -y git-lfs openssh-client
+            git lfs install
+            mkdir -p ~/.ssh
+            ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+            ssh git@github.com git-lfs-authenticate "${CIRCLE_PROJECT_USERNAME}/${CIRCLE_PROJECT_REPONAME}" download
+            git lfs pull
+      - run:
+          name: Install deps
+          command: |
+            echo PATH=$PATH
+            python3 -m pip install -q --user --upgrade -r requirements.txt
+
+      - run:
+          name: List deps
+          command: |
+            mkdir -p artifacts
+            python3 -m pip freeze | tee artifacts/pip-freeze.txt
+            pipdeptree | tee artifacts/pipdeptree.txt
+
+      - run:
+          name: setup.py develop
+          command: |
+            python3 -m pip install -e . --prefix ~/.local --no-deps
+      - run:
+          name: Python stats
+          command: |
+            mkdir -p build-stats
+            env | sort | tee  build-stats/env.txt
+            python3 -m pip list | sort | tee  build-stats/pip-list.txt
+            python3 -m pip freeze | sort | tee  build-stats/pip-freeze.txt
+      - store_artifacts:
+          path: build-stats
+          destination: build-stats
+      - run:
+          name: Run tests
+          command: |
+            make tests-coverage-single-nocontracts
+
+      - run:
+          name: Notebooks
+          command: |
+            make -C notebooks cleanup all
+
+      - run:
+          name: Example draw maps
+          command: |
+            make tests-maps-coverage
+
+#      - run:
+#          name: Example LFV download
+#          command: |
+#            rm test-data/LFV.json
+#            wget https://github.com/duckietown/duckietown-world/raw/master18/test-data/LFV.json -O test-data/LFV.json
+
+#      - run:
+#          name: Example LFV
+#          command: |
+#            make tests-LFV-coverage
+#
+
+      - run:
+          name: Coverage analysis
+          when: always
+          command: |
+            make coverage-report
+
+
+      - run:
+          name: Codecov
+          when: always
+          command: |
+            codecov
+
+      - run:
+          name: Create JUnit output
+          when: always
+          command: |
+            make junit
+
+      - test-results-store:
+          path: out-comptests/junit
+
+      - store_artifacts:
+          path: out-comptests/duckietown_world_tests
+          destination: duckietown_world_tests
+
+      - store_artifacts:
+          path: artifacts
+          destination: artifacts
+
+      - store_artifacts:
+          path: out_coverage
+          destination: coverage
+
+      - store_artifacts:
+          path: notebooks
+          destination: notebooks
+#
+#  test-3.5:
+#    <<: *test-template
+#    docker:
+#      - image: python:3.5
+  test-3.7:
+    <<: *test-template
+    docker:
+      - image: python:3.7
+  test-3.7.5:
+    <<: *test-template
+    docker:
+    - image: python:3.7.5
+  test-3.7.6:
+    <<: *test-template
+    docker:
+      - image: python:3.7.6
+  test-3.8-production:
+    <<: *test-template
+    docker:
+    - image: python:3.8
+  test-3.8-staging:
+    <<: *test-template
+    docker:
+    - image: python:3.8
+  test-3.8.0:
+    <<: *test-template
+    docker:
+      - image: python:3.8.0
+  test-3.8.1:
+    <<: *test-template
+    docker:
+      - image: python:3.8.1
+  test-3.8.2:
+    <<: *test-template
+    docker:
+      - image: python:3.8.2

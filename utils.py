@@ -1,3 +1,4 @@
+from typing import Tuple
 import cv2
 import geometry
 import numpy as np
@@ -78,7 +79,7 @@ def get_acceleration(action, u=None, w=None):
 
     ## Calculate Dynamics
     # nonlinear Dynamics - autonomous response
-    f_dynamic = np.array([[-u1 * u - u2 * w + u3 * w ** 2], [-w1 * w - w2 * u - w3 * u * w]])  #
+    f_dynamic = np.array([[-u1 * u - u2 * w + u3 * w ** 2], [-w1 * w - w2 * u - w3 * u * w]])
     # input Matrix
     B = np.array([[u_alpha_r, u_alpha_l], [w_alpha_r, -w_alpha_l]])
     # forced response
@@ -174,7 +175,7 @@ def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True):
     return points_fitted
         
 
-def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033):
+def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple[Position, float, float]:
     """
     Calculate the odometry from the action and the current state.
 
@@ -196,6 +197,32 @@ def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033):
     # Runge Kutta
     x1 = x0 + v0*dt*np.cos(theta0 + w0*dt/2)
     y1 = y0 + v0*dt*np.sin(theta0 + w0*dt/2)
+    theta1 = theta0 + w0*dt
+
+    return Position(x1, y1, theta1), v1, w1
+
+def my_odometry_linearized(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple[Position, float, float]:
+    """
+    my_odometry but linearized at 3rd order.
+
+    :param action: the action to perform
+    :param x0: the initial x position
+    :param y0: the initial y position
+    :param theta0: the initial orientation
+    :param v0: the initial linear speed
+    :param w0: the initial angular speed
+    :param dt: the time step
+
+    :return: (Position, float, float)
+    """
+    x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
+
+    v1 = v0 + x_dot_dot[0]*dt
+    w1 = w0 + w_dot_dot[0]*dt
+
+    # Runge Kutta
+    x1 = x0 + v0*dt *(1 - 0.5*(theta0 + w0*dt/2)**2)
+    y1 = y0 + v0*dt*(theta0 + w0*dt/2 - (1/6) * (theta0 + w0*dt/2)**3)
     theta1 = theta0 + w0*dt
 
     return Position(x1, y1, theta1), v1, w1

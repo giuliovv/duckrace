@@ -35,6 +35,36 @@ class PWMCommands:
     motor_left: float
     motor_right: float
 
+def get_acceleration(action, u=None, w=None):
+    """
+    Second derivative of x
+
+    return:
+    xdotdot[0] = acc longitudinal
+    xdotdot[1] = acc angular
+    """
+    # https://drive.google.com/file/d/19U1DUo3GtqHxncEKLn2d6RRdLTLgD0Bv/view
+    # Paragraph 5.1.5
+    
+    # wr, wl
+    U = np.array([action[1], action[0]])
+    V = U.reshape(U.size, 1)
+    V = np.clip(V, -1, +1)
+
+    # Previous step linear and angular speed
+    # u, w = longit_prev, angular_prev
+
+    ## Calculate Dynamics
+    # nonlinear Dynamics - autonomous response
+    f_dynamic = np.array([[-u1 * u - u2 * w + u3 * w ** 2], [-w1 * w - w2 * u - w3 * u * w]])  #
+    # input Matrix
+    B = np.array([[u_alpha_r, u_alpha_l], [w_alpha_r, -w_alpha_l]])
+    # forced response
+    f_forced = np.matmul(B, V)
+    # acceleration
+    x_dot_dot = f_dynamic + f_forced
+    return x_dot_dot
+
 def get_dimensions(env):
     """
     Get the dimensions of the environment.
@@ -125,21 +155,18 @@ def next_position(env, dt, omega_l, omega_r) -> Position:
     q_ext.from_friendly(q_string)
     return q_ext
 
-def my_odometry(p: Position, dt, action, L=0.102, wheel_radius=0.0318, speed=1.2) -> Position:
-    omega_l, omega_r = np.clip(action, -1, 1)*speed
-    if omega_l == 0 and omega_r == 0:
-        return p
-    if omega_r == omega_l:
-        V = omega_l*wheel_radius
-        omega = 0
-    else:
-        R = L/2 * (omega_l + omega_r) / (omega_r - omega_l)
-        omega = wheel_radius*(omega_r - omega_l)/L
-        V = omega*R
-    tetha_1 = p.theta + omega*dt
-    x_1 = p.x + V*dt*np.cos(p.theta + omega*dt/2)
-    y_1 = p.y + V*dt*np.sin(p.theta + omega*dt/2)
-    return Position(x_1, y_1, tetha_1)
+def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033):
+    x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
+
+    v1 = v0 + x_dot_dot[0]*dt
+    w1 = w0 + w_dot_dot[0]*dt
+
+    # Runge Kutta
+    x1 = x0 + v0*dt*np.cos(theta0 + w0*dt/2)
+    y1 = y0 + v0*dt*np.sin(theta0 + w0*dt/2)
+    theta1 = theta0 + w0*dt
+
+    return Position(x1, y1, theta1), v1, w1
 
 def sort_xy(x, y):
     """

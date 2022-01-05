@@ -17,6 +17,9 @@ class Position:
         return Position(x1+x2, y1+y2, (theta1+theta2)%360)
 
     def from_friendly(self, p_string: str):
+        """
+        Read geometry.SE2.friendly
+        """
         self.theta = float(p_string.split("Pose(Rot(")[1].split("deg)")[0])
         self.x = float(p_string.split("[")[1].replace("  ", " ").split(" ")[0])
         self.y = float(p_string.split("[")[1].replace("  ", " ").split(" ")[1].replace("])", ""))
@@ -39,12 +42,31 @@ def get_acceleration(action, u=None, w=None):
     """
     Second derivative of x
 
-    return:
-    xdotdot[0] = acc longitudinal
-    xdotdot[1] = acc angular
+    :param action: the action to be taken [wl, wr]
+    :param u: the current velocity
+    :param w: the current angular velocity
+
+    :return: (acc longitudinal, acc angular)
     """
     # https://drive.google.com/file/d/19U1DUo3GtqHxncEKLn2d6RRdLTLgD0Bv/view
     # Paragraph 5.1.5
+
+    u1 = 5
+    u2 = 0
+    u3 = 0
+    w1 = 4
+    w2 = 0
+    w3 = 0
+    # parameters for forced dynamics
+    uar = 1.5
+    ual = 1.5
+    war = 15  # modify this for trim
+    wal = 15
+
+    u_alpha_r = uar
+    u_alpha_l = ual
+    w_alpha_r = war
+    w_alpha_l = wal
     
     # wr, wl
     U = np.array([action[1], action[0]])
@@ -71,7 +93,7 @@ def get_dimensions(env):
     """
     return (env.grid_height*env.road_tile_size, env.grid_width*env.road_tile_size)
 
-def get_position(env):
+def get_position(env) -> Position:
     """
     Get the position of the agent in the environment.
     """
@@ -84,6 +106,12 @@ def get_position(env):
 def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True):
     """
     Get the trajectory of the agent in the environment.
+
+    :param no_preprocessing: if True, the trajectory is not preprocessed
+    :param samples: the number of samples to take
+    :param scaled: if True, the trajectory is scaled to the environment size
+
+    :return: np.array
     """
     env.reset()
     top_view = np.flip(env.render(mode="top_down"), [0])[35:-30,130:-130]
@@ -145,17 +173,21 @@ def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True):
 
     return points_fitted
         
-def next_position(env, dt, omega_l, omega_r) -> Position:
-    # Line 2076
-    action = DynamicsInfo(motor_left=omega_l, motor_right=omega_r)
-    state = env.state.integrate(dt, action)
-    q = state.TSE2_from_state()[0]
-    q_string = geometry.SE2.friendly(q)
-    q_ext = Position()
-    q_ext.from_friendly(q_string)
-    return q_ext
 
 def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033):
+    """
+    Calculate the odometry from the action and the current state.
+
+    :param action: the action to perform
+    :param x0: the initial x position
+    :param y0: the initial y position
+    :param theta0: the initial orientation
+    :param v0: the initial linear speed
+    :param w0: the initial angular speed
+    :param dt: the time step
+
+    :return: (Position, float, float)
+    """
     x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
 
     v1 = v0 + x_dot_dot[0]*dt

@@ -27,6 +27,14 @@ class DynamicsInfo:
     motor_left: float
     motor_right: float
 
+@dataclass
+class PWMCommands:
+    """
+    PWM commands are floats between -1 and 1.
+    """
+    motor_left: float
+    motor_right: float
+
 def get_dimensions(env):
     """
     Get the dimensions of the environment.
@@ -121,7 +129,7 @@ def my_odometry(p: Position, dt, action, L=0.102, wheel_radius=0.0318, speed=1.2
     omega_l, omega_r = np.clip(action, -1, 1)*speed
     if omega_l == 0 and omega_r == 0:
         return p
-    if omega_r-omega_l == 0:
+    if omega_r == omega_l:
         V = omega_l*wheel_radius
         omega = 0
     else:

@@ -203,7 +203,7 @@ def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple[Position, 
 
 def my_odometry_linearized(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple[Position, float, float]:
     """
-    my_odometry but linearized at 3rd order.
+    my_odometry but linearized.
 
     :param action: the action to perform
     :param x0: the initial x position
@@ -221,11 +221,32 @@ def my_odometry_linearized(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple
     w1 = w0 + w_dot_dot[0]*dt
 
     # Runge Kutta
-    x1 = x0 + v0*dt *(1 - 0.5*(theta0 + w0*dt/2)**2)
-    y1 = y0 + v0*dt*(theta0 + w0*dt/2 - (1/6) * (theta0 + w0*dt/2)**3)
+    x1 = x0 + v0*dt
+    y1 = y0 + v0*dt*(theta0 + w0*dt/2 )
     theta1 = theta0 + w0*dt
 
     return Position(x1, y1, theta1), v1, w1
+
+def my_odom_lin(v, w, x0, y0, t0, dt, v_eq=0, w_eq=0):
+    u = np.array([v, w]).T
+
+    B_00 = dt*np.cos(t0+w_eq*dt/2)
+    B_01 = -v_eq*dt*np.sin(t0+w_eq*dt/2)*dt/2
+    B_10 = dt*np.sin(t0+w_eq*dt/2)
+    B_11 = v_eq*dt*np.cos(t0+w_eq*dt/2)*dt/2
+    B_20 = 0
+    B_21 = w_eq*dt
+
+    B = np.array([[B_00, B_01], [B_10, B_11], [B_20, B_21]])
+
+    A0 = np.array([x0, y0, -t0]).T
+    A1 = -B@np.array([v_eq, w_eq]).T
+
+    A = A0 + A1
+
+    x_k = A+B@u
+
+    return x_k
 
 def sort_xy(x, y):
     """
@@ -245,3 +266,19 @@ def sort_xy(x, y):
     y_sorted = y[mask]
 
     return x_sorted, y_sorted
+
+#################
+# UNDERGOING TEST
+
+def auto_odom_full(action, x0, y0, theta0, v0=0, w0=0, dt=0.033):
+    # Trick is to +1 delay
+    x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
+    v1 = v0 + x_dot_dot[0]*dt
+    w1 = w0 + w_dot_dot[0]*dt
+
+    # Runge Kutta
+    x1 = x0 + v1*dt*np.cos(theta0 + w1*dt/2)
+    y1 = y0 + v1*dt*np.sin(theta0 + w1*dt/2)
+    theta1 = theta0 + w1*dt
+
+    return Position(x1, y1, theta1), v1, w1

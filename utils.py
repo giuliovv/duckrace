@@ -306,10 +306,8 @@ def auto_odom_full(t, x, u, params):
 
 def linearized_odom(action, x0, y0, theta0, v0=0, w0=0, dt=0.033, return_result=False):
     io_odom = ct.NonlinearIOSystem(auto_odom_full, None, inputs=('wl', 'wr'), states=('x', 'y', 'th', 'v', 'w'), outputs=('x', 'y', 'th', 'v', 'w'), name='odom', params={'dt': dt})
-    eqpt = ct.find_eqpt(io_odom, [x0, y0, theta0, v0, w0], [*action], return_result=return_result)
-    print(eqpt)
-    xeq = eqpt[0]
-    lin_odom = ct.linearize(io_odom, xeq, 0)
-    x = lin_odom.A@[[xe] for xe in xeq] + lin_odom.B@[[a] for a in action]
+    xeq, ueq = ct.find_eqpt(io_odom, [x0, y0, theta0, v0, w0], [*action], return_result=return_result)
+    lin_odom = ct.linearize(io_odom, xeq, ueq)
+    x = lin_odom.A@[[x0], [y0], [theta0], [v0], [w0]] + lin_odom.B@[[a] for a in action]
     return x.reshape(-1)
     

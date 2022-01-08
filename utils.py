@@ -1,4 +1,6 @@
 from typing import Tuple
+
+import control as ct
 import cv2
 import geometry
 import numpy as np
@@ -270,9 +272,28 @@ def sort_xy(x, y):
 #################
 # UNDERGOING TEST
 
-def auto_odom_full(action, x0, y0, theta0, v0=0, w0=0, dt=0.033):
+# def auto_odom_full(action, x0, y0, theta0, v0=0, w0=0, dt=0.033):
+#     # Trick is to +1 delay
+#     x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
+#     v1 = v0 + x_dot_dot[0]*dt
+#     w1 = w0 + w_dot_dot[0]*dt
+
+#     # Runge Kutta
+#     x1 = x0 + v1*dt*np.cos(theta0 + w1*dt/2)
+#     y1 = y0 + v1*dt*np.sin(theta0 + w1*dt/2)
+#     theta1 = theta0 + w1*dt
+
+#     return Position(x1, y1, theta1), v1, w1
+
+def auto_odom_full(t, x, u, params):
     # Trick is to +1 delay
-    x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
+    dt = params.get('dt', 0.033)
+
+    wl, wr, v0, w0 = u[0], u[1], u[2], u[3]
+
+    x0, y0, theta0 = x[0], x[1], x[2]
+
+    x_dot_dot, w_dot_dot = get_acceleration([wl, wr], u=v0, w=w0)
     v1 = v0 + x_dot_dot[0]*dt
     w1 = w0 + w_dot_dot[0]*dt
 
@@ -281,4 +302,14 @@ def auto_odom_full(action, x0, y0, theta0, v0=0, w0=0, dt=0.033):
     y1 = y0 + v1*dt*np.sin(theta0 + w1*dt/2)
     theta1 = theta0 + w1*dt
 
-    return Position(x1, y1, theta1), v1, w1
+    return [x1, y1, theta1, v1, w1]
+
+def linearized_odom(action, x0, y0, theta0, v0=0, w0=0, dt=0.033, return_result=False):
+    io_odom = ct.NonlinearIOSystem(auto_odom_full, None, inputs=('wl', 'wr', 'v0', 'w0'), states=('x1', 'y1', 'th1', 'v1', 'w1'), outputs=('x1', 'y1', 'th1', 'v1', 'w1'), name='odom', params={'dt': dt})
+    eqpt = ct.find_eqpt(io_odom, [x0, y0, theta0, v0, w0], [*action, v0, w0], return_result=return_result)
+    print(eqpt)
+    xeq = eqpt[0]
+    lin_odom = ct.linearize(io_odom, xeq, 0)
+    x = lin_odom.A@xeq + lin_odom.B@[*action, v0, w0]
+    return x
+    

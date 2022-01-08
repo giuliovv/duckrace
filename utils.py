@@ -311,5 +311,5 @@ def linearized_odom(action, x0, y0, theta0, v0=0, w0=0, dt=0.033, return_result=
     xeq = eqpt[0]
     lin_odom = ct.linearize(io_odom, xeq, 0)
     x = lin_odom.A@[[xe] for xe in xeq] + lin_odom.B@[[a] for a in action]
-    return x
+    return x.reshape(-1)
     

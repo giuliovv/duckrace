@@ -229,27 +229,6 @@ def my_odometry_linearized(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple
 
     return Position(x1, y1, theta1), v1, w1
 
-def my_odom_lin(v, w, x0, y0, t0, dt, v_eq=0, w_eq=0):
-    u = np.array([v, w]).T
-
-    B_00 = dt*np.cos(t0+w_eq*dt/2)
-    B_01 = -v_eq*dt*np.sin(t0+w_eq*dt/2)*dt/2
-    B_10 = dt*np.sin(t0+w_eq*dt/2)
-    B_11 = v_eq*dt*np.cos(t0+w_eq*dt/2)*dt/2
-    B_20 = 0
-    B_21 = w_eq*dt
-
-    B = np.array([[B_00, B_01], [B_10, B_11], [B_20, B_21]])
-
-    A0 = np.array([x0, y0, -t0]).T
-    A1 = -B@np.array([v_eq, w_eq]).T
-
-    A = A0 + A1
-
-    x_k = A+B@u
-
-    return x_k
-
 def sort_xy(x, y):
     """
     Sort by angle
@@ -272,28 +251,28 @@ def sort_xy(x, y):
 #################
 # UNDERGOING TEST
 
-# def auto_odom_full(action, x0, y0, theta0, v0=0, w0=0, dt=0.033):
-#     # Trick is to +1 delay
-#     x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
-#     v1 = v0 + x_dot_dot[0]*dt
-#     w1 = w0 + w_dot_dot[0]*dt
+def auto_odom_full_direct(action, x0, y0, theta0, v0=0, w0=0, dt=1/30):
+    # Trick is to +1 delay
+    x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
+    v1 = v0 + x_dot_dot[0]*dt
+    w1 = w0 + w_dot_dot[0]*dt
 
-#     # Runge Kutta
-#     x1 = x0 + v1*dt*np.cos(theta0 + w1*dt/2)
-#     y1 = y0 + v1*dt*np.sin(theta0 + w1*dt/2)
-#     theta1 = theta0 + w1*dt
+    # Runge Kutta
+    x1 = x0 + v1*dt*np.cos(theta0 + w1*dt/2)
+    y1 = y0 + v1*dt*np.sin(theta0 + w1*dt/2)
+    theta1 = theta0 + w1*dt
 
-#     return Position(x1, y1, theta1), v1, w1
+    return Position(x1, y1, theta1), v1, w1
 
 def auto_odom_full(t, x, u, params):
     # Trick is to +1 delay
-    dt = params.get('dt', 0.033)
+    dt = params.get('dt', 1/30)
 
-    wl, wr = u[0], u[1]
+    action = u[0], u[1]
 
     x0, y0, theta0, v0, w0 = x[0], x[1], x[2], x[3], x[4]
 
-    x_dot_dot, w_dot_dot = get_acceleration([wl, wr], u=v0, w=w0)
+    x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
     v1 = v0 + x_dot_dot[0]*dt
     w1 = w0 + w_dot_dot[0]*dt
 
@@ -306,8 +285,8 @@ def auto_odom_full(t, x, u, params):
 
 def linearized_odom(action, x0, y0, theta0, v0=0, w0=0, dt=0.033, return_result=False):
     io_odom = ct.NonlinearIOSystem(auto_odom_full, None, inputs=('wl', 'wr'), states=('x', 'y', 'th', 'v', 'w'), outputs=('x', 'y', 'th', 'v', 'w'), name='odom', params={'dt': dt})
-    xeq, ueq = ct.find_eqpt(io_odom, [x0, y0, theta0, v0, w0], [*action], return_result=return_result)
-    lin_odom = ct.linearize(io_odom, xeq, ueq)
+    xeq, ueq = ct.find_eqpt(io_odom, [x0, y0, theta0, v0, w0], action, return_result=return_result)
+    lin_odom = ct.linearize(io_odom, xeq, [0,0])
     x = lin_odom.A@[[x0], [y0], [theta0], [v0], [w0]] + lin_odom.B@[[a] for a in action]
     return x.reshape(-1)
     

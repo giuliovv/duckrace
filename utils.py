@@ -289,9 +289,9 @@ def auto_odom_full(t, x, u, params):
     # Trick is to +1 delay
     dt = params.get('dt', 0.033)
 
-    wl, wr, v0, w0 = u[0], u[1], u[2], u[3]
+    wl, wr = u[0], u[1]
 
-    x0, y0, theta0 = x[0], x[1], x[2]
+    x0, y0, theta0, v0, w0 = x[0], x[1], x[2], x[3], x[4]
 
     x_dot_dot, w_dot_dot = get_acceleration([wl, wr], u=v0, w=w0)
     v1 = v0 + x_dot_dot[0]*dt
@@ -305,11 +305,11 @@ def auto_odom_full(t, x, u, params):
     return [x1, y1, theta1, v1, w1]
 
 def linearized_odom(action, x0, y0, theta0, v0=0, w0=0, dt=0.033, return_result=False):
-    io_odom = ct.NonlinearIOSystem(auto_odom_full, None, inputs=('wl', 'wr', 'v0', 'w0'), states=('x1', 'y1', 'th1', 'v1', 'w1'), outputs=('x1', 'y1', 'th1', 'v1', 'w1'), name='odom', params={'dt': dt})
-    eqpt = ct.find_eqpt(io_odom, [x0, y0, theta0, v0, w0], [*action, v0, w0], return_result=return_result)
+    io_odom = ct.NonlinearIOSystem(auto_odom_full, None, inputs=('wl', 'wr'), states=('x', 'y', 'th', 'v', 'w'), outputs=('x', 'y', 'th', 'v', 'w'), name='odom', params={'dt': dt})
+    eqpt = ct.find_eqpt(io_odom, [x0, y0, theta0, v0, w0], [*action], return_result=return_result)
     print(eqpt)
     xeq = eqpt[0]
     lin_odom = ct.linearize(io_odom, xeq, 0)
-    x = lin_odom.A@xeq + lin_odom.B@[*action, v0, w0]
+    x = lin_odom.A@[xe for xe in xeq] + lin_odom.B@[[a] for a in action]
     return x
     

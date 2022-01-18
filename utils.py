@@ -101,9 +101,9 @@ def get_position(env) -> Position:
     Get the position of the agent in the environment.
     """
     p_se_matrix = env.cartesian_from_weird(env.cur_pos, env.cur_angle)
-    p_string = geometry.SE2.friendly(p_se_matrix)
-    p = Position()
-    p.from_friendly(p_string)
+    # p_string = geometry.SE2.friendly(p_se_matrix)
+    p = Position(x=p_se_matrix[0, 2], y=p_se_matrix[1, 2], theta=env.cur_angle)
+    # p.from_friendly(p_string)
     return p
 
 def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True):

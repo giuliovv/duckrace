@@ -247,46 +247,4 @@ def sort_xy(x, y):
     y_sorted = y[mask]
 
     return x_sorted, y_sorted
-
-#################
-# UNDERGOING TEST
-
-def auto_odom_full_direct(action, x0, y0, theta0, v0=0, w0=0, dt=1/30):
-    # Trick is to +1 delay
-    x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
-    v1 = v0 + x_dot_dot[0]*dt
-    w1 = w0 + w_dot_dot[0]*dt
-
-    # Runge Kutta
-    x1 = x0 + v1*dt*np.cos(theta0 + w1*dt/2)
-    y1 = y0 + v1*dt*np.sin(theta0 + w1*dt/2)
-    theta1 = theta0 + w1*dt
-
-    return Position(x1, y1, theta1), v1, w1
-
-def auto_odom_full(t, x, u, params):
-    # Trick is to +1 delay
-    dt = params.get('dt', 1/30)
-
-    action = u[0], u[1]
-
-    x0, y0, theta0, v0, w0 = x[0], x[1], x[2], x[3], x[4]
-
-    x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
-    v1 = v0 + x_dot_dot[0]*dt
-    w1 = w0 + w_dot_dot[0]*dt
-
-    # Runge Kutta
-    x1 = x0 + v1*dt*np.cos(theta0 + w1*dt/2)
-    y1 = y0 + v1*dt*np.sin(theta0 + w1*dt/2)
-    theta1 = theta0 + w1*dt
-
-    return [x1, y1, theta1, v1, w1]
-
-def linearized_odom(action, x0, y0, theta0, v0=0, w0=0, dt=1/30, return_result=False):
-    io_odom = ct.NonlinearIOSystem(auto_odom_full, None, inputs=('wl', 'wr'), states=('x', 'y', 'th', 'v', 'w'), outputs=('x', 'y', 'th', 'v', 'w'), name='odom', params={'dt': dt})
-    xeq, ueq = ct.find_eqpt(io_odom, [x0, y0, theta0, v0, w0], action, return_result=return_result)
-    lin_odom = ct.linearize(io_odom, xeq, [0,0])
-    x = lin_odom.A@[[x0], [y0], [theta0], [v0], [w0]] + lin_odom.B@[[a] for a in action]
-    return x.reshape(-1)
     

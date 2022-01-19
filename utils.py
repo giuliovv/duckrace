@@ -3,6 +3,7 @@ from typing import Tuple
 import control as ct
 import cv2
 import geometry
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import UnivariateSpline
 from dataclasses import dataclass
@@ -228,6 +229,18 @@ def my_odometry_linearized(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple
     theta1 = theta0 + w0*dt
 
     return Position(x1, y1, theta1), v1, w1
+
+def show_on_map(env, poses: Position):
+    """
+    Show the pose on the map.
+
+    :param env: the environment
+    :param pose: list of points of type Position
+    """
+    env.reset()
+    top_view = env.render(mode="top_down")[35:-30,130:-130]
+    plt.plot([p.x*top_view.shape[0]/(env.grid_width*env.road_tile_size) for p in poses], [p.y*top_view.shape[1]/(env.grid_width*env.road_tile_size) for p in poses], c='r')
+    plt.imshow(top_view, origin='lower')
 
 def sort_xy(x, y):
     """

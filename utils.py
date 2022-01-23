@@ -128,7 +128,7 @@ def get_position(env) -> Position:
     # p.from_friendly(p_string)
     return p
 
-def get_interpolation(env, no_preprocessing=False, return_origin=False):
+def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=True):
     """
     Get the interpolation function of the trajectory of the agent in the environment.
 
@@ -173,14 +173,19 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False):
         x_all, y_all = np.nonzero(mask)
         x, y = x_all, y_all
 
+    if scaled:
+        x, y = image_to_tile_coordinates(x, y, env)
+
     x_sorted, y_sorted, x0, y0 = sort_xy(x, y, return_origin=True)
 
     # Interpolation angle-based
 
     angles = get_angles(x_sorted, y_sorted, x0=x0, y0=y0)
 
-    spline_x = UnivariateSpline(angles, x_sorted, k=1, s=.01)
-    spline_y = UnivariateSpline(angles, y_sorted, k=1, s=.01)
+    s = 0.001 if scaled else 0.01
+
+    spline_x = UnivariateSpline(angles, x_sorted, k=1, s=s)
+    spline_y = UnivariateSpline(angles, y_sorted, k=1, s=s)
 
     if return_origin:
         return spline_x, spline_y, x_sorted, y_sorted, x0, y0
@@ -202,18 +207,11 @@ def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True):
 
     :return: np.array
     """
-    splines = get_interpolation(env, no_preprocessing=no_preprocessing)
+    splines = get_interpolation(env, no_preprocessing=no_preprocessing, scaled=scaled)
 
     # Computed the spline for the asked distances:
     alpha = np.linspace(0, 2*np.pi, samples)
     points_fitted = np.vstack( spl(alpha) for spl in splines ).T
-
-    top_x, top_y, z = get_top_view_shape(env)
-
-    if scaled:
-        points_fitted[:,0] = points_fitted[:,0]*env.grid_width*env.road_tile_size/top_y
-        points_fitted[:,1] = points_fitted[:,1]*env.grid_height*env.road_tile_size/top_x
-        return points_fitted
 
     return points_fitted
         

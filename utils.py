@@ -128,11 +128,12 @@ def get_position(env) -> Position:
     # p.from_friendly(p_string)
     return p
 
-def get_interpolation(env, no_preprocessing=False):
+def get_interpolation(env, no_preprocessing=False, return_origin=False):
     """
     Get the interpolation function of the trajectory of the agent in the environment.
 
     :param no_preprocessing: if True, the trajectory is not preprocessed
+    :param return_origin: if True, the origin is returned
 
     :return: np.array
     """
@@ -172,20 +173,19 @@ def get_interpolation(env, no_preprocessing=False):
         x_all, y_all = np.nonzero(mask)
         x, y = x_all, y_all
 
-    x_sorted, y_sorted = sort_xy(x, y)
+    x_sorted, y_sorted, x0, y0 = sort_xy(x, y, return_original=True)
 
-    points = np.array([x_sorted, y_sorted]).T
+    # Interpolation angle-based
 
-    # Linear length along the line:
-    distance = np.cumsum( np.sqrt(np.sum( np.diff(points, axis=0)**2, axis=1 )) )
-    distance = np.insert(distance, 0, 0)/distance[-1]
+    angles = get_angles(x_sorted, y_sorted, x0=x0, y0=y0)
 
-    # Build a list of the spline function, one for each dimension:
-    # k is the degree of the spline. 3 means cubic
+    spline_x = UnivariateSpline(angles, x_sorted, k=1, s=.01)
+    spline_y = UnivariateSpline(angles, y_sorted, k=1, s=.01)
 
-    splines = [UnivariateSpline(distance, coords, k=1, s=.01) for coords in points.T]
+    if return_origin:
+        return spline_x, spline_y, x_sorted, y_sorted, x0, y0
 
-    return splines
+    return [spline_x, spline_y]
 
 def get_top_view_shape(env):
     env.reset()
@@ -282,9 +282,11 @@ def show_on_map(env, poses: Position):
     plt.plot([p.x*top_view.shape[0]/(env.grid_width*env.road_tile_size) for p in poses], [p.y*top_view.shape[1]/(env.grid_width*env.road_tile_size) for p in poses], c='r')
     plt.imshow(top_view, origin='lower')
 
-def sort_xy(x, y):
+def sort_xy(x, y, return_origin=False):
     """
     Sort by angle
+
+    :param return_origin: If true returns also the computed origin
     """
 
     x0 = np.mean(x)
@@ -298,6 +300,9 @@ def sort_xy(x, y):
 
     x_sorted = x[mask]
     y_sorted = y[mask]
+
+    if return_origin:
+        return x_sorted, y_sorted, x0, y0
 
     return x_sorted, y_sorted
     

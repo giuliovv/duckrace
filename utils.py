@@ -173,7 +173,7 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False):
         x_all, y_all = np.nonzero(mask)
         x, y = x_all, y_all
 
-    x_sorted, y_sorted, x0, y0 = sort_xy(x, y, return_original=True)
+    x_sorted, y_sorted, x0, y0 = sort_xy(x, y, return_origin=True)
 
     # Interpolation angle-based
 
@@ -205,7 +205,7 @@ def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True):
     splines = get_interpolation(env, no_preprocessing=no_preprocessing)
 
     # Computed the spline for the asked distances:
-    alpha = np.linspace(0, 1, samples)
+    alpha = np.linspace(0, 2*np.pi, samples)
     points_fitted = np.vstack( spl(alpha) for spl in splines ).T
 
     top_x, top_y, z = get_top_view_shape(env)
@@ -217,6 +217,21 @@ def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True):
 
     return points_fitted
         
+
+def image_to_tile_coordinates(x, y, env):
+    """
+    Convert image coordinates to tile coordinates.
+    :param x: x coordinates
+    :param y: y coordinates
+    :param env: the environment
+    
+    :return: x, y
+    """
+    top_x, top_y, z = get_top_view_shape(env)
+
+    x = x*env.grid_width*env.road_tile_size/top_y
+    y = y*env.grid_height*env.road_tile_size/top_x
+    return x, y
 
 def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple[Position, float, float]:
     """

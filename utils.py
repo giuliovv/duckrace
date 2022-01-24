@@ -126,8 +126,8 @@ def get_casadi_interpolation(env):
     x, y = points.T
     x_sorted, y_sorted, x0, y0 = sort_xy(x, y, return_origin=True)
     angles = get_angles(x_sorted, y_sorted, x0=x0, y0=y0)
-    spline_x = ca.interpolant('LUT','bspline', [angles], x)
-    spline_y = ca.interpolant('LUT','bspline', [angles], y)
+    spline_x = ca.interpolant('LUT','bspline', [angles], x_sorted)
+    spline_y = ca.interpolant('LUT','bspline', [angles], y_sorted)
     return spline_x, spline_y, x_sorted, y_sorted, x0, y0
 
 def get_position(env) -> Position:

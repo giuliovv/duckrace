@@ -182,7 +182,12 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=T
 
     angles = get_angles(x_sorted, y_sorted, x0=x0, y0=y0)
 
-    s = 0.001 if scaled else 0.01
+    # Add first and last point
+    angles = np.concatenate([[0], angles, [2*np.pi]])
+    x_sorted = np.concatenate([[x_sorted[-1]], x_sorted, [x_sorted[0]]])
+    y_sorted = np.concatenate([[y_sorted[-1]], y_sorted, [y_sorted[0]]])
+
+    s = 0.004 if scaled else 0.01
 
     spline_x = UnivariateSpline(angles, x_sorted, k=1, s=s)
     spline_y = UnivariateSpline(angles, y_sorted, k=1, s=s)

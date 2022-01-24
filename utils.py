@@ -1,8 +1,7 @@
 from typing import Tuple
 
-import control as ct
+import casadi as ca
 import cv2
-import geometry
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import UnivariateSpline
@@ -117,6 +116,19 @@ def get_angles(x, y, x0=None, y0=None):
     angles = np.where((y-y0) > 0, np.arccos((x-x0)/r), 2*np.pi-np.arccos((x-x0)/r))
 
     return angles
+
+def get_casadi_interpolation(env):
+    """
+    Get the interpolation function of the trajectory of the agent in the environment but for casadi.
+    Interpolate on the already done interpolation to keep the advantages of scipy.
+    """
+    points = get_trajectory(env, samples=200, scaled=True)
+    x, y = points.T
+    x_sorted, y_sorted, x0, y0 = sort_xy(x, y, return_origin=True)
+    angles = get_angles(x_sorted, y_sorted, x0=x0, y0=y0)
+    spline_x = ca.interpolant('LUT','bspline', [angles], x)
+    spline_y = ca.interpolant('LUT','bspline', [angles], y)
+    return spline_x, spline_y, x_sorted, y_sorted, x0, y0
 
 def get_position(env) -> Position:
     """

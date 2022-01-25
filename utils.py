@@ -117,7 +117,7 @@ def get_angles(x, y, x0=None, y0=None):
 
     return angles
 
-def get_casadi_interpolation(env):
+def get_casadi_interpolation(env, show_result=False):
     """
     Get the interpolation function of the trajectory of the agent in the environment but for casadi.
     Interpolate on the already done interpolation to keep the advantages of scipy.
@@ -128,6 +128,10 @@ def get_casadi_interpolation(env):
     angles = get_angles(x_sorted, y_sorted, x0=x0, y0=y0)
     spline_x = ca.interpolant('LUT','bspline', [angles], x_sorted)
     spline_y = ca.interpolant('LUT','bspline', [angles], y_sorted)
+    if show_result:
+        plt.figure()
+        plt.plot(spline_x(angles), spline_y(angles))
+        plt.show()
     return spline_x, spline_y, x_sorted, y_sorted, x0, y0
 
 def get_position(env) -> Position:

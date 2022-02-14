@@ -144,12 +144,14 @@ def get_position(env) -> Position:
     # p.from_friendly(p_string)
     return p
 
-def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=True):
+def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=True, method="distance"):
     """
     Get the interpolation function of the trajectory of the agent in the environment.
 
     :param no_preprocessing: if True, the trajectory is not preprocessed
     :param return_origin: if True, the origin is returned
+    :param scaled: if True, the coordinates are scaled
+    :param method: if "angle", the angles are used, if "distance", the distance from starting point is used
 
     :return: np.array
     """
@@ -194,19 +196,27 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=T
 
     x_sorted, y_sorted, x0, y0 = sort_xy(x, y, return_origin=True)
 
-    # Interpolation angle-based
 
-    angles = get_angles(x_sorted, y_sorted, x0=x0, y0=y0)
+    if method == "angle":
+        # Interpolation angle-based
+        angles = get_angles(x_sorted, y_sorted, x0=x0, y0=y0)
+        # Add first and last point
+        spline_input = np.concatenate([[0], angles, [2*np.pi]])
+        x_sorted = np.concatenate([[x_sorted[-1]], x_sorted, [x_sorted[0]]])
+        y_sorted = np.concatenate([[y_sorted[-1]], y_sorted, [y_sorted[0]]])
+    elif method == "distance":
+        # Interpolation distance-based
+        points = np.array([x_sorted, y_sorted]).T
+        distance = np.cumsum( np.sqrt(np.sum( np.diff(points, axis=0)**2, axis=1 )) )
+        spline_input = np.insert(distance, 0, 0)#/distance[-1]
+    else:
+        raise ValueError("Unknown method")
 
-    # Add first and last point
-    angles = np.concatenate([[0], angles, [2*np.pi]])
-    x_sorted = np.concatenate([[x_sorted[-1]], x_sorted, [x_sorted[0]]])
-    y_sorted = np.concatenate([[y_sorted[-1]], y_sorted, [y_sorted[0]]])
 
     s = 0.006 if scaled else 0.01
 
-    spline_x = UnivariateSpline(angles, x_sorted, k=2, s=s)
-    spline_y = UnivariateSpline(angles, y_sorted, k=2, s=s)
+    spline_x = UnivariateSpline(spline_input, x_sorted, k=2, s=s)
+    spline_y = UnivariateSpline(spline_input, y_sorted, k=2, s=s)
 
     if return_origin:
         return spline_x, spline_y, x_sorted, y_sorted, x0, y0
@@ -218,17 +228,18 @@ def get_top_view_shape(env):
     top_view = env.render(mode="top_down")[35:-30,130:-130]
     return top_view.shape
 
-def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True):
+def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method="distance"):
     """
     Get some points from the trajectory of the agent in the environment.
 
     :param no_preprocessing: if True, the trajectory is not preprocessed
     :param samples: the number of samples to take
     :param scaled: if True, the trajectory is scaled to the environment size
+    :param method: if "angle", the angles are used, if "distance", the distance from starting point is used
 
     :return: np.array
     """
-    splines = get_interpolation(env, no_preprocessing=no_preprocessing, scaled=scaled)
+    splines = get_interpolation(env, no_preprocessing=no_preprocessing, scaled=scaled, method=method)
 
     # Computed the spline for the asked distances:
     alpha = np.linspace(0, 2*np.pi, samples)

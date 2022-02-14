@@ -208,9 +208,9 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=T
         # Interpolation distance-based
         points = np.array([x_sorted, y_sorted]).T
         distance = np.cumsum( np.sqrt(np.sum( np.diff(points, axis=0)**2, axis=1 )) )
-        spline_input = np.insert(distance, 0, 0)#/distance[-1]
+        spline_input = np.insert(distance, 0, 0)/distance[-1]
     else:
-        raise ValueError("Unknown method")
+        raise ValueError("Unknown method, must be 'angle' or 'distance'")
 
 
     s = 0.006 if scaled else 0.01
@@ -242,7 +242,12 @@ def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method=
     splines = get_interpolation(env, no_preprocessing=no_preprocessing, scaled=scaled, method=method)
 
     # Computed the spline for the asked distances:
-    alpha = np.linspace(0, 2*np.pi, samples)
+    if method == "angle":
+        alpha = np.linspace(0, 2*np.pi, samples)
+    elif method == "distance":
+        alpha = np.linspace(0, 1, samples)
+    else:
+        raise ValueError("Unknown method, must be 'angle' or 'distance'")
     points_fitted = np.vstack( spl(alpha) for spl in splines ).T
 
     return points_fitted

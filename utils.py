@@ -144,6 +144,21 @@ def get_position(env) -> Position:
     # p.from_friendly(p_string)
     return p
 
+def get_top_view(env):
+    """
+    Top down has black borders, cut them and return only the track.
+
+    :param env: the environment
+    """
+    img = env.render(mode="top_down")
+    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+    _,thresh = cv2.threshold(gray,21,255,cv2.THRESH_BINARY)
+    contours,_ = cv2.findContours(thresh,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+    cnt = contours[0]
+    x,y,w,h = cv2.boundingRect(cnt)
+    crop = img[y:y+h,x:x+w]
+    return crop
+
 def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=True, method="distance"):
     """
     Get the interpolation function of the trajectory of the agent in the environment.
@@ -156,7 +171,8 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=T
     :return: np.array
     """
     env.reset()
-    top_view = np.flip(env.render(mode="top_down"), [0])[35:-30,130:-130]
+    top_view = np.flip(get_top_view(env), [0])
+    # top_view = get_top_view(env)
 
     img_hsv = cv2.cvtColor(top_view, cv2.COLOR_RGB2HSV)
     gray = cv2.cvtColor(top_view, cv2.COLOR_RGB2GRAY)
@@ -225,7 +241,7 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=T
 
 def get_top_view_shape(env):
     env.reset()
-    top_view = env.render(mode="top_down")[35:-30,130:-130]
+    top_view = get_top_view(env)
     return top_view.shape
 
 def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method="distance"):
@@ -294,32 +310,6 @@ def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple[Position, 
 
     return Position(x1, y1, theta1), v1, w1
 
-def my_odometry_linearized(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple[Position, float, float]:
-    """
-    my_odometry but linearized.
-
-    :param action: the action to perform
-    :param x0: the initial x position
-    :param y0: the initial y position
-    :param theta0: the initial orientation
-    :param v0: the initial linear speed
-    :param w0: the initial angular speed
-    :param dt: the time step
-
-    :return: (Position, float, float)
-    """
-    x_dot_dot, w_dot_dot = get_acceleration(action, u=v0, w=w0)
-
-    v1 = v0 + x_dot_dot[0]*dt
-    w1 = w0 + w_dot_dot[0]*dt
-
-    # Runge Kutta
-    x1 = x0 + v0*dt
-    y1 = y0 + v0*dt*(theta0 + w0*dt/2 )
-    theta1 = theta0 + w0*dt
-
-    return Position(x1, y1, theta1), v1, w1
-
 def show_on_map(env, poses: Position):
     """
     Show the pose on the map.
@@ -328,8 +318,21 @@ def show_on_map(env, poses: Position):
     :param pose: list of points of type Position
     """
     env.reset()
-    top_view = env.render(mode="top_down")[35:-30,130:-130]
-    plt.plot([p.x*top_view.shape[0]/(env.grid_width*env.road_tile_size) for p in poses], [p.y*top_view.shape[1]/(env.grid_width*env.road_tile_size) for p in poses], c='r')
+    top_view = get_top_view(env)
+    plt.plot([p.x*top_view.shape[1]/(env.grid_width*env.road_tile_size) for p in poses], [p.y*top_view.shape[0]/(env.grid_height*env.road_tile_size) for p in poses], c='r')
+    plt.imshow(top_view, origin='lower')
+
+def show_on_map_array(env, poses, top_view=None):
+    """
+    Show the pose on the map.
+
+    :param env: the environment
+    :param pose: list of points [[x0, y0], [x1, y1], ...]
+    :param top_view: the top view image, if None, it is computed
+    """
+    if top_view == None:
+        top_view = get_top_view(env)
+    plt.plot(poses[:, 0]*top_view.shape[1]/(env.grid_width*env.road_tile_size), poses[:, 1]*top_view.shape[0]/(env.grid_height*env.road_tile_size), c='r')
     plt.imshow(top_view, origin='lower')
 
 def sort_xy(x, y, return_origin=False):

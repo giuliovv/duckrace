@@ -244,7 +244,7 @@ def get_top_view_shape(env):
     top_view = get_top_view(env)
     return top_view.shape
 
-def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method="distance"):
+def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method="distance", last_value_distance=1):
     """
     Get some points from the trajectory of the agent in the environment.
 
@@ -252,6 +252,7 @@ def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method=
     :param samples: the number of samples to take
     :param scaled: if True, the trajectory is scaled to the environment size
     :param method: if "angle", the angles are used, if "distance", the distance from starting point is used
+    :param last_value_distance: if method is "distance", the last value is the scaled distance from the starting point
 
     :return: np.array
     """
@@ -261,7 +262,7 @@ def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method=
     if method == "angle":
         alpha = np.linspace(0, 2*np.pi, samples)
     elif method == "distance":
-        alpha = np.linspace(0, 1, samples)
+        alpha = np.linspace(0, last_value_distance, samples)
     else:
         raise ValueError("Unknown method, must be 'angle' or 'distance'")
     points_fitted = np.vstack( spl(alpha) for spl in splines ).T

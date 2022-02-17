@@ -1,6 +1,6 @@
 # DuckRace Simulator
 Configure the DuckRace Simulator
 
-![Central line](assets/output.png)
+<img src="./assets/output.png" width="400" />
 
 ![MPC](assets/mpc_run.gif)

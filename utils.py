@@ -5,6 +5,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import UnivariateSpline
+from scipy import spatial
 from dataclasses import dataclass
 
 
@@ -159,7 +160,7 @@ def get_top_view(env):
     crop = img[y:y+h,x:x+w]
     return crop
 
-def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=True, method="distance"):
+def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=True, method="distance", sortby="angle"):
     """
     Get the interpolation function of the trajectory of the agent in the environment.
 
@@ -167,12 +168,13 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=T
     :param return_origin: if True, the origin is returned
     :param scaled: if True, the coordinates are scaled
     :param method: if "angle", the angles are used, if "distance", the distance from starting point is used
+    :param sortby: if "angle", the angles are used, if "distance", the distance from the previous point is used
 
     :return: np.array
     """
     env.reset()
-    top_view = np.flip(get_top_view(env), [0])
-    # top_view = get_top_view(env)
+    # top_view = np.flip(get_top_view(env), [0])
+    top_view = get_top_view(env)
 
     img_hsv = cv2.cvtColor(top_view, cv2.COLOR_RGB2HSV)
     gray = cv2.cvtColor(top_view, cv2.COLOR_RGB2GRAY)
@@ -184,18 +186,18 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=T
     mask = cv2.bitwise_and(gray, mask_yellow)
 
     if not no_preprocessing:
-        kernel = np.ones((4, 4), np.uint8)
-        eroded = cv2.erode(mask, kernel) 
+        # kernel = np.ones((4, 4), np.uint8)
+        # eroded = cv2.erode(mask, kernel) 
 
         low_threshold = 89
         high_threshold = 80
-        edges = cv2.Canny(eroded, low_threshold, high_threshold)
+        edges = cv2.Canny(mask, low_threshold, high_threshold)
 
-        rho = 1  # distance resolution in pixels of the Hough grid
+        rho = 1 if sortby != "distance" else 1.5  # distance resolution in pixels of the Hough grid
         theta = np.pi / 180  # angular resolution in radians of the Hough grid
         threshold = 3  # minimum number of votes (intersections in Hough grid cell)
         min_line_length = 10  # minimum number of pixels making up a line
-        max_line_gap = 50  # maximum gap in pixels between connectable line segments
+        max_line_gap = 15  # maximum gap in pixels between connectable line segments
 
         lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]), min_line_length, max_line_gap)
 
@@ -210,10 +212,18 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=T
     if scaled:
         x, y = image_to_tile_coordinates(x, y, env)
 
-    x_sorted, y_sorted, x0, y0 = sort_xy(x, y, return_origin=True)
-
+    if sortby == "angle":
+        x_sorted, y_sorted, x0, y0 = sort_xy(x, y, return_origin=True)
+    elif sortby == "distance":
+        x_sorted, y_sorted = sort_distance(x, y)
+        x0 = np.mean(x)
+        y0 = np.mean(y)
+    else:
+        raise ValueError("Unknown method, must be 'angle' or 'distance'")
 
     if method == "angle":
+        if sortby == "distance":
+            raise NotImplementedError("When sortby='distance' please use method='distance'")
         # Interpolation angle-based
         angles = get_angles(x_sorted, y_sorted, x0=x0, y0=y0)
         # Add first and last point
@@ -229,7 +239,7 @@ def get_interpolation(env, no_preprocessing=False, return_origin=False, scaled=T
         raise ValueError("Unknown method, must be 'angle' or 'distance'")
 
 
-    s = 0.006 if scaled else 0.01
+    s = 0.05 if scaled else 0.01
 
     spline_x = UnivariateSpline(spline_input, x_sorted, k=2, s=s)
     spline_y = UnivariateSpline(spline_input, y_sorted, k=2, s=s)
@@ -244,7 +254,7 @@ def get_top_view_shape(env):
     top_view = get_top_view(env)
     return top_view.shape
 
-def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method="distance", last_value_distance=1):
+def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method="distance", last_value_distance=1, sortby="angle"):
     """
     Get some points from the trajectory of the agent in the environment.
 
@@ -253,10 +263,11 @@ def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method=
     :param scaled: if True, the trajectory is scaled to the environment size
     :param method: if "angle", the angles are used, if "distance", the distance from starting point is used
     :param last_value_distance: if method is "distance", the last value is the scaled distance from the starting point
+    :param sortby: if "angle", the angles are used, if "distance", the distance from the previous point is used
 
     :return: np.array
     """
-    splines = get_interpolation(env, no_preprocessing=no_preprocessing, scaled=scaled, method=method)
+    splines = get_interpolation(env, no_preprocessing=no_preprocessing, scaled=scaled, method=method, sortby=sortby)
 
     # Computed the spline for the asked distances:
     if method == "angle":
@@ -337,6 +348,29 @@ def show_on_map_array(env, poses, top_view=None, fig=plt):
         top_view = get_top_view(env)
     fig.plot(poses[:, 0]*top_view.shape[1]/(env.grid_width*env.road_tile_size), poses[:, 1]*top_view.shape[0]/(env.grid_height*env.road_tile_size), c='r')
     fig.imshow(top_view, origin='lower')
+
+def sort_distance(x, y):
+    """
+    Sort by distance from previous point.
+    Starts sorting by points[0]
+
+    :param points: array [[x0,y0], [x1, y1], ...]
+
+    :return: two sorted arrays x, y
+    """
+    points = np.array([x, y]).T
+    tree = spatial.KDTree(points)
+    point = points[0]
+    pts = points[1:]
+    sortedxy = [point]
+    for _ in range(len(points)-1):
+        tree = spatial.KDTree(pts)
+        _, idx = tree.query([*point], k=1)
+        point = pts[idx]
+        pts = np.delete(pts, idx, 0)
+        sortedxy.append(point)
+    x_sorted, y_sorted = np.array(sortedxy).T
+    return x_sorted, y_sorted
 
 def sort_xy(x, y, return_origin=False):
     """

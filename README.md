@@ -1,6 +1,6 @@
-# DuckRace Simulator
-Configure the DuckRace Simulator
+# DuckRace
+A MPC that follows a trajectory extracted from the central yellow line.
 
-![Central line](assets/output.png)
+<img src="./assets/output.png"/>
 
-![MPC](assets/mpc_run.gif)
+<img src="./assets/mpc_run.gif" width="800" />

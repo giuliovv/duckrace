@@ -311,30 +311,32 @@ def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple[Position, 
 
     return Position(x1, y1, theta1), v1, w1
 
-def show_on_map(env, poses: Position):
+def show_on_map(env, poses: Position, fig=plt):
     """
     Show the pose on the map.
 
     :param env: the environment
     :param pose: list of points of type Position
+    :param fig: the figure to plot on
     """
     env.reset()
     top_view = get_top_view(env)
-    plt.plot([p.x*top_view.shape[1]/(env.grid_width*env.road_tile_size) for p in poses], [p.y*top_view.shape[0]/(env.grid_height*env.road_tile_size) for p in poses], c='r')
-    plt.imshow(top_view, origin='lower')
+    fig.plot([p.x*top_view.shape[1]/(env.grid_width*env.road_tile_size) for p in poses], [p.y*top_view.shape[0]/(env.grid_height*env.road_tile_size) for p in poses], c='r')
+    fig.imshow(top_view, origin='lower')
 
-def show_on_map_array(env, poses, top_view=None):
+def show_on_map_array(env, poses, top_view=None, fig=plt):
     """
     Show the pose on the map.
 
     :param env: the environment
     :param pose: list of points [[x0, y0], [x1, y1], ...]
     :param top_view: the top view image, if None, it is computed
+    :param fig: the figure to plot on
     """
     if top_view == None:
         top_view = get_top_view(env)
-    plt.plot(poses[:, 0]*top_view.shape[1]/(env.grid_width*env.road_tile_size), poses[:, 1]*top_view.shape[0]/(env.grid_height*env.road_tile_size), c='r')
-    plt.imshow(top_view, origin='lower')
+    fig.plot(poses[:, 0]*top_view.shape[1]/(env.grid_width*env.road_tile_size), poses[:, 1]*top_view.shape[0]/(env.grid_height*env.road_tile_size), c='r')
+    fig.imshow(top_view, origin='lower')
 
 def sort_xy(x, y, return_origin=False):
     """

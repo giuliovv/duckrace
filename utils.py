@@ -117,6 +117,45 @@ def get_angles(x, y, x0=None, y0=None):
 
     return angles
 
+def get_border(traj, distance=0.15):
+    """
+    Get the border of the trajectory.
+    
+    :param traj: the trajectory of the yellow line
+    :param distance: the distance from the center
+
+    :return: the borders of the track
+    """
+    borders_inside = []
+    borders_outside = []
+    xm, ym = traj.mean(0)
+    for idx, _ in enumerate(traj[:-1]):
+        x0, y0 = traj[idx]
+        x1, y1 = traj[idx+1]
+        m = (y1 - y0) / (x1 - x0)
+        xp, yp = (x1 + x0) / 2, (y1 + y0) / 2
+        mp = -1 / m
+        kp = yp - mp * xp
+        a = 1+mp**2
+        b = -2*xp+2*mp*(kp-yp)
+        c = -distance**2+(kp-yp)**2+xp**2
+        try:
+            xs0, xs1 = np.roots([a,b,c])
+        except np.linalg.LinAlgError:
+            print("No solution")
+            continue
+        ys0, ys1 = mp*xs0+kp, mp*xs1+kp
+
+        if (xs0-xm)**2+(ys0-ym)**2 < (xs1-xm)**2+(ys1-ym)**2:
+            borders_inside.append([xs0, ys0])
+            borders_outside.append([xs1, ys1])
+        else:
+            borders_inside.append([xs1, ys1])
+            borders_outside.append([xs0, ys0])
+    borders_inside = np.array(borders_inside)
+    borders_outside = np.array(borders_outside)
+    return borders_inside, borders_outside
+
 def get_casadi_interpolation(env, show_result=False):
     """
     Get the interpolation function of the trajectory of the agent in the environment but for casadi.

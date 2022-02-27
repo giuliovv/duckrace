@@ -41,6 +41,15 @@ class PWMCommands:
     motor_left: float
     motor_right: float
 
+def casadi_mod(n, base):
+    """
+    Modulo function for casadi.
+    
+    :param n: number to be moduloed
+    :param base: modulo base
+    """
+    return n - ca.floor(n/base) * base
+
 def get_acceleration(action, u=None, w=None):
     """
     Second derivative of x
@@ -323,6 +332,43 @@ def image_to_tile_coordinates(x, y, env):
     x = x*env.grid_width*env.road_tile_size/top_y
     y = y*env.grid_height*env.road_tile_size/top_x
     return x, y
+
+def model_F(dt=0.033):
+    """
+    Return the model casadi function.
+
+    :param dt: the time step
+    """
+    up = 5
+    wp = 4
+    # parameters for forced dynamics
+    u_alpha_r = 1.5
+    u_alpha_l = 1.5
+    w_alpha_r = 15  # modify this for trim
+    w_alpha_l = 15
+    # States
+    x0 = ca.MX.sym('x')
+    y0 = ca.MX.sym('y')
+    th0 = ca.MX.sym('th')
+    w0 = ca.MX.sym('w')
+    v0 = ca.MX.sym('v')
+    x = ca.vertcat(x0, y0, th0, v0, w0) # Always vertically concatenate the states --> [n_x,1]
+    # Inputs
+    wl = ca.MX.sym('wl')
+    wr = ca.MX.sym('wr')
+    u = ca.vertcat(wl, wr) # Always vertically concatenate the inputs --> [n_u,1]
+    # System dynamics (CAN BE NONLINEAR! ;))
+    # x_long_dot_dot = -u1*v0 + u_alpha_r*wr + u_alpha_l*wl
+    # w_dot_dot = -w1*w0 + w_alpha_r*wr - w_alpha_l*wl
+    v1 = (1-up*dt)*v0 + u_alpha_r*dt*wr + u_alpha_l*dt*wl
+    w1 = (1-wp*dt)*w0 + w_alpha_r*dt*wr - w_alpha_l*dt*wl
+    x1 = x0 + v0*dt*np.cos(th0 + w0*dt/2)
+    y1 = y0 + v0*dt*np.sin(th0 + w0*dt/2)
+    # Cannot use atan2 because x1 and y1 are approximated while th1 is not
+    theta1 = th0 + w0*dt
+    dae = ca.vertcat(x1, y1, theta1, v1, w1)
+    F = ca.Function('F',[x,u],[dae],['x','u'],['dae'])
+    return F
 
 def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple[Position, float, float]:
     """

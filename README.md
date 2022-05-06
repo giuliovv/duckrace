@@ -1,10 +1,21 @@
 # DuckRace
-A MPC that follows a trajectory extracted from the central yellow line.
-The idea is to build a learning MPC that maximizes overtakes.
+How fast a duck with an iterative learning MPC can go?
+
+Someone had to figure out.
+
 Work in progress...
 
+## LMPC
 
 <img src="./assets/lmpc_result.png"/>
+
+<img src="./assets/lmpc_run.gif" width="800" />
+
+</br>
+
+## Standard line following MPC
+
+Line extraction and following:
 
 <img src="./assets/output.png"/>
 

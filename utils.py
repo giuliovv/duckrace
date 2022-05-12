@@ -146,6 +146,39 @@ def get_acceleration(action, u=None, w=None):
     x_dot_dot = f_dynamic + f_forced
     return x_dot_dot
 
+def get_cars(img):
+    """
+    Get the two cars position from the image.
+    In the future we will need to have two cars of different colors.
+
+    :param img: the image from the watchtower
+
+    :return: the two cars position
+    """
+    img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    hsv_color1 = np.array([100, 100, 130])
+    hsv_color2 = np.array([110, 250, 170])
+
+    mask_blue = cv2.inRange(img_hsv, hsv_color1, hsv_color2)
+    kernel = np.ones((2,2), np.uint8)
+    img_erosion = cv2.erode(mask_blue, kernel, iterations=2)
+    img_dilation = cv2.dilate(img_erosion, kernel, iterations=10)
+    rho = 1  # distance resolution in pixels of the Hough grid
+
+    theta = np.pi / 90  # angular resolution in radians of the Hough grid
+    threshold = 20  # minimum number of votes (intersections in Hough grid cell)
+    min_line_length = 20  # minimum number of pixels making up a line
+    max_line_gap = 15  # maximum gap in pixels between connectable line segments
+
+    # cv2.Canny(img_dilation,100,200)
+    lines = cv2.HoughLinesP(cv2.Canny(img_dilation,50,100), rho, theta, threshold, np.array([]), min_line_length, max_line_gap)
+
+    _points = lines.reshape(-1, 2)
+
+    filt = ((_points - _points[0])**2).sum(1) < 70**2
+
+    return _points[filt], _points[~filt]
+
 def get_dimensions(env):
     """
     Get the dimensions of the environment.

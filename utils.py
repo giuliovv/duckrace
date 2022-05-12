@@ -85,9 +85,6 @@ def calibration_params(traj, img):
 
     offset_x = borders[:,0].min() - traj_scaled[:,0].min()
     offset_y = borders[:,1].min() - traj_scaled[:,1].min()
-
-    traj_scaled[:,0] += offset_x
-    traj_scaled[:,1] += offset_y
     
     return scale_x, scale_y, offset_x, offset_y
 

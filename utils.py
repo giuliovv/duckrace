@@ -5,6 +5,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import UnivariateSpline
+from scipy.spatial import ConvexHull
 from dataclasses import dataclass
 
 
@@ -40,6 +41,55 @@ class PWMCommands:
     """
     motor_left: float
     motor_right: float
+
+def calibration_params(traj, img):
+    """
+    Get the calibration parameters to fit the simulation to the real track.
+
+    :param traj: the trajectory from the simulation
+    :param img: the image from the watchtower
+
+    :return: the calibrated parameters
+    """
+    rho = 1  # distance resolution in pixels of the Hough grid
+    theta = np.pi / 90  # angular resolution in radians of the Hough grid
+    threshold = 10  # minimum number of votes (intersections in Hough grid cell)
+    min_line_length = 30  # minimum number of pixels making up a line
+    max_line_gap = 15  # maximum gap in pixels between connectable line segments
+    
+    cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+    img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+    # Range for yellow
+    hsv_color1 = np.array([35, 70, 210])
+    hsv_color2 = np.array([60, 250, 250])
+
+    mask = cv2.inRange(img_hsv, hsv_color1, hsv_color2)
+    
+    low_threshold = 89
+    high_threshold = 80
+    edges = cv2.Canny(mask, low_threshold, high_threshold)
+
+    lines = cv2.HoughLinesP(edges, rho, theta, threshold, np.array([]), min_line_length, max_line_gap)
+
+    _points = lines.reshape(-1, 2)
+    hull = ConvexHull(points=_points)
+    
+    borders = _points[hull.vertices]
+    scale_x = (borders[:,0].max()-borders[:,0].min())/(traj[:,0].max()-traj[:,0].min())
+    scale_y = (borders[:,1].max()-borders[:,1].min())/(traj[:,1].max()-traj[:,1].min())
+    
+    traj_scaled = traj
+    traj_scaled[:,0] = traj_scaled[:,0]*scale_x
+    traj_scaled[:,1] = traj_scaled[:,1]*scale_y
+
+    offset_x = borders[:,0].min() - traj_scaled[:,0].min()
+    offset_y = borders[:,1].min() - traj_scaled[:,1].min()
+
+    traj_scaled[:,0] += offset_x
+    traj_scaled[:,1] += offset_y
+    
+    return scale_x, scale_y, offset_x, offset_y
 
 def casadi_mod(n, base):
     """
@@ -447,3 +497,23 @@ def sort_xy(x, y, return_origin=False):
 
     return x_sorted, y_sorted
     
+def use_calibration(traj, scale_x=None, scale_y=None, offset_x=None, offset_y=None, img=None):
+    """
+    Use the calibration to transform the trajectory.
+
+    :param traj: the trajectory from the simulation
+    :param scale_x: the x scale
+    :param scale_y: the y scale
+    :param offset_x: the x offset
+    :param offset_y: the y offset
+    :param img: the image from the watchtower
+
+    :return: the transformed trajectory
+    """
+    if scale_x == None or scale_y == None or offset_x == None or offset_y == None:
+        if img is None:
+            raise ValueError("Please provide the calibration values scale_x, scale_y, offset_x, offset_y or the img.")
+        scale_x, scale_y, offset_x, offset_y = calibration_params(traj, img)
+    traj[:,0] = traj[:,0]*scale_x + offset_x
+    traj[:,1] = traj[:,1]*scale_y + offset_y
+    return traj

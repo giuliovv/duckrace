@@ -5,6 +5,8 @@ Someone had to figure out.
 
 Work in progress...
 
+**N.B.** Ubuntu is required (Windows is not supported by Duckietown)
+
 ## LMPC
 
 <img src="./assets/lmpc_result.png"/>

@@ -5,6 +5,8 @@ Someone had to figure out.
 
 Work in progress...
 
+Localization in PoliAutolab: https://github.com/giuliovv/poliautolab
+
 **N.B.** Ubuntu is required (Windows is not supported by Duckietown)
 
 ## LMPC

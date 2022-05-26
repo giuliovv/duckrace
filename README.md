@@ -6,6 +6,7 @@ Someone had to figure out.
 Work in progress...
 
 Localization in PoliAutolab: https://github.com/giuliovv/poliautolab
+Implementation on real track: https://github.com/giuliovv/duckrace-implementation
 
 **N.B.** Ubuntu is required (Windows is not supported by Duckietown)
 

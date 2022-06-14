@@ -1,3 +1,5 @@
+py-multihash==0.2.3
+wheel
 duckietown-gym-daffy==6.1.30
 gym==0.21.0
 matplotlib==3.5.1

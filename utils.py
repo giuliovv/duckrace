@@ -388,7 +388,7 @@ def get_trajectory(env, no_preprocessing=False, samples=50, scaled=True, method=
     else:
         raise ValueError("Unknown method, must be 'angle' or 'distance'")
     points_fitted = np.vstack( spl(alpha) for spl in splines ).T
-
+    #points_fitted = points_fitted + np.array([-1.25, -1.5])
     return points_fitted
         
 

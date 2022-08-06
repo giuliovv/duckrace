@@ -444,6 +444,61 @@ def model_F(dt=0.033):
     F = ca.Function('F',[x,u],[dae],['x','u'],['dae'])
     return F
 
+def model_F_tuned(dt=0.033):
+    """
+    Return the model casadi function tuned according to the parameter found in the thesis.
+
+    :param dt: the time step
+    """
+    u1 = 7.662 # 5
+    u2 = 0.325
+    u3 = -0.050
+    w1 = 6.826 # 4
+    w2 = -4.929
+    w3 = -6.515
+    # parameters for forced dynamics
+    # u_alpha_r = 1.5
+    # u_alpha_l = 1.5
+    # w_alpha_r = 15  # modify this for trim
+    # w_alpha_l = 15
+   
+    u_alpha_r = 2.755
+    u_alpha_l = 2.741
+    w_alpha_r = 14.663  # modify this for trim
+    w_alpha_l = 14.662
+    # States
+    x0 = ca.MX.sym('x')
+    y0 = ca.MX.sym('y')
+    th0 = ca.MX.sym('th')
+    w0 = ca.MX.sym('w')
+    v0 = ca.MX.sym('v')
+    x = ca.vertcat(x0, y0, th0, v0, w0) # Always vertically concatenate the states --> [n_x,1]
+    # Inputs
+    wl = ca.MX.sym('wl')
+    wr = ca.MX.sym('wr')
+    u = ca.vertcat(wl, wr) # Always vertically concatenate the inputs --> [n_u,1]
+    
+    # V =  [[wl], [wr]]
+    V = ca.vertcat(wl, wr)
+
+    f_dynamic = ca.vertcat(-u1 * v0 - u2 * w0 + u3 * w0 ** 2, -w1 * w0 - w2 * v0 - w3 * v0 * w0)
+    # input Matrix
+    B = ca.DM([[u_alpha_r, u_alpha_l], [w_alpha_r, -w_alpha_l]])
+    # forced response
+    f_forced = B@V
+    # acceleration
+    X_dot_dot = f_dynamic + f_forced
+    
+    v1 = v0 + X_dot_dot[0] * dt
+    w1 = w0 + X_dot_dot[1] * dt
+    x1 = x0 + v0*dt*np.cos(th0 + w0*dt/2)
+    y1 = y0 + v0*dt*np.sin(th0 + w0*dt/2)
+    # Cannot use atan2 because x1 and y1 are approximated while th1 is not
+    theta1 = th0 + w0*dt
+    dae = ca.vertcat(x1, y1, theta1, v1, w1)
+    F = ca.Function('F',[x,u],[dae],['x','u'],['dae'])
+    return F
+
 def my_odometry(action, x0, y0, theta0, v0=0, w0=0, dt=0.033)-> Tuple[Position, float, float]:
     """
     Calculate the odometry from the action and the current state.

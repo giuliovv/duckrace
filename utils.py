@@ -444,28 +444,36 @@ def model_F(dt=0.033):
     F = ca.Function('F',[x,u],[dae],['x','u'],['dae'])
     return F
 
-def model_F_tuned(dt=0.033):
+def model_F_tuned(dt=0.033, method="speed"):
     """
     Return the model casadi function tuned according to the parameter found in the thesis.
 
     :param dt: the time step
     """
-    u1 = 7.662 # 5
-    u2 = 0.325
-    u3 = -0.050
-    w1 = 6.826 # 4
-    w2 = -4.929
-    w3 = -6.515
-    # parameters for forced dynamics
-    # u_alpha_r = 1.5
-    # u_alpha_l = 1.5
-    # w_alpha_r = 15  # modify this for trim
-    # w_alpha_l = 15
-   
-    u_alpha_r = 2.755
-    u_alpha_l = 2.741
-    w_alpha_r = 14.663  # modify this for trim
-    w_alpha_l = 14.662
+    if method == "speed":
+        u1 = 2.14148837
+        u2 = 0.12200042
+        u3 = -0.28237442
+        w1 = 1.3380637
+        w2 = 0.40072379
+        w3 = 1.30781483
+        u_alpha_r = 1.30781483
+        u_alpha_l = 1.03762896
+        w_alpha_r = 2.9650673
+        w_alpha_l = 2.89169198
+    elif method == "position":
+        u1 = 4.3123709
+        u2 = 0.42117578
+        u3 = 0. 
+        w1 = 1.34991163
+        w2 = 0.66724572
+        w3 = 0.74908594
+        u_alpha_r = 2.27306332
+        u_alpha_l = 0.73258966
+        w_alpha_r = 3.12010274
+        w_alpha_l = 2.86162447
+    else:
+        raise ValueError("Unknown method, must be 'speed' or 'position'")
     # States
     x0 = ca.MX.sym('x')
     y0 = ca.MX.sym('y')
